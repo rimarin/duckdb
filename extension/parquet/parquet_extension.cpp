@@ -697,6 +697,12 @@ public:
 		if (reset_reader) {
 			MultiFileReader::PruneReaders(data);
 		}
+		// Log the number of retrieved partitions to text file
+		auto numPrunedPartitions = data.files.size();
+		std::ofstream numPartitionsFile;
+		numPartitionsFile.open("num_partitions.log", std::fstream::out);
+		numPartitionsFile << numPrunedPartitions << "\n";
+		numPartitionsFile.close();
 	}
 
 	//! Wait for a file to become available. Parallel lock should be locked when calling.

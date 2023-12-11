@@ -108,6 +108,7 @@ struct ParquetReadGlobalState : public GlobalTableFunctionState {
 	vector<LogicalType> scanned_types;
 	vector<column_t> column_ids;
 	TableFilterSet *filters;
+	map<string, uint64_t> fileToFetchedRowGroups;
 
 	idx_t MaxThreads() const override {
 		return max_threads;
@@ -613,11 +614,21 @@ public:
 				MultiFileReader::FinalizeChunk(bind_data.reader_bind, data.reader->reader_data, output);
 			}
 
+			auto localFileToFetchedRowGroups = data.scan_state.fileToFetchedRowGroups;
+			for (const auto &fileToNumRowGroups : localFileToFetchedRowGroups){
+				gstate.fileToFetchedRowGroups[fileToNumRowGroups.first] += fileToNumRowGroups.second;
+			}
+
 			bind_data.chunk_count++;
 			if (output.size() > 0) {
 				return;
 			}
 			if (!ParquetParallelStateNext(context, bind_data, data, gstate)) {
+				// Log the number of retrieved partitions
+				std::ofstream numPartitionsFile;
+				numPartitionsFile.open("partitions.log", std::fstream::out);
+				numPartitionsFile << gstate.fileToFetchedRowGroups.size() << "\n";
+				numPartitionsFile.close();
 				return;
 			}
 		} while (true);
@@ -697,12 +708,7 @@ public:
 		if (reset_reader) {
 			MultiFileReader::PruneReaders(data);
 		}
-		// Log the number of retrieved partitions to text file
-		auto numPrunedPartitions = data.files.size();
-		std::ofstream numPartitionsFile;
-		numPartitionsFile.open("num_partitions.log", std::fstream::out);
-		numPartitionsFile << numPrunedPartitions << "\n";
-		numPartitionsFile.close();
+		// NOTE: Actually this is meant only for Hive partitioning, not stats-based Parquet file pruning
 	}
 
 	//! Wait for a file to become available. Parallel lock should be locked when calling.

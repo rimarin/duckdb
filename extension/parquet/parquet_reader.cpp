@@ -638,7 +638,7 @@ idx_t ParquetReader::GetGroupOffset(ParquetReaderScanState &state) {
 	return min_offset;
 }
 
-void ParquetReader::PrepareRowGroupBuffer(ParquetReaderScanState &state, idx_t col_idx) {
+bool ParquetReader::PrepareRowGroupBuffer(ParquetReaderScanState &state, idx_t col_idx) {
 	auto &group = GetGroup(state);
 	auto column_id = reader_data.column_ids[col_idx];
 	auto column_reader = state.root_reader->Cast<StructColumnReader>().GetChildReader(column_id);
@@ -659,13 +659,14 @@ void ParquetReader::PrepareRowGroupBuffer(ParquetReaderScanState &state, idx_t c
 			if (skip_chunk) {
 				// this effectively will skip this chunk
 				state.group_offset = group.num_rows;
-				return;
+				return true;
 			}
 		}
 	}
 
 	state.root_reader->InitializeRead(state.group_idx_list[state.current_group], group.columns,
 	                                  *state.thrift_file_proto);
+	return false;
 }
 
 idx_t ParquetReader::NumRows() {
@@ -909,13 +910,20 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 		}
 
 		uint64_t to_scan_compressed_bytes = 0;
+		bool columnSkipped = false;
 		for (idx_t col_idx = 0; col_idx < reader_data.column_ids.size(); col_idx++) {
-			PrepareRowGroupBuffer(state, col_idx);
+			columnSkipped |= PrepareRowGroupBuffer(state, col_idx);
+			// True: row group is relevant for the query filters
+			// False: row group was pruned thanks to columnar statistics
 
 			auto file_col_idx = reader_data.column_ids[col_idx];
 
 			auto &root_reader = state.root_reader->Cast<StructColumnReader>();
 			to_scan_compressed_bytes += root_reader.GetChildReader(file_col_idx)->TotalCompressedSize();
+		}
+
+		if (!columnSkipped){
+			state.fileToFetchedRowGroups[file_name] += 1;
 		}
 
 		auto &group = GetGroup(state);

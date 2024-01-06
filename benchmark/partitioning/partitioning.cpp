@@ -7,31 +7,51 @@
 
 using namespace duckdb;
 
-#define OPLQP_PATH "/home/brancaleone/Projects/optimal-physical-layout-query-processing/benchmark/temp"
+#define OPLQP_PATH "/home/brancaleone/Projects/optimal-physical-layout-query-processing/benchmark/temp/"
+#define QUERY_FILE "query.sql"
+#define VERIFY_FILE "verify.sql"
 
-#define OPLQPBenchmark(QUERY_FILE)             						                                                       \
-	void Load(DuckDBBenchmarkState *state) override {                                                                  \
+//////////////
+// DuckDBPartitionState //
+//////////////
+struct DuckDBPartitionState : public DuckDBBenchmarkState {
+	string query;
+
+	DuckDBPartitionState(string path) : DuckDBBenchmarkState(path) {
+		string basePath = OPLQP_PATH;
+		string queryPath = QUERY_FILE;
+		std::ifstream inputFileStream(basePath + queryPath);                                                                           \
+		std::string fileContent;                                                                                       \
+		fileContent.assign ( (std::istreambuf_iterator<char>(inputFileStream) ),                                       \
+		                   (  std::istreambuf_iterator<char>()    ) );                                                 \
+		query = fileContent;
+	}
+	virtual ~DuckDBPartitionState() {
+	}
+};
+
+#define OPLQPBenchmark(QUERY_FILE) 																					   \
+	duckdb::unique_ptr<DuckDBBenchmarkState> CreateBenchmarkState() override {   									   \
+		auto result = make_uniq<DuckDBPartitionState>(GetDatabasePath());                                              \
+		return std::move(result);                                                                                      \
+    }                                                                                                                  \
+	void Load(DuckDBBenchmarkState *state_p) override {                                                                \
 	}                                                                                                                  \
-	std::string ReadFile(std::string path) {                                                                       \
-		std::ifstream inputFileStream(path);                                                                          \
-	  	std::string fileContent; \
-		fileContent.assign ( (std::istreambuf_iterator<char>(inputFileStream) ), \
-		 				     (std::istreambuf_iterator<char>()    ) );                                                           \
-		return fileContent;                                                                                           \
-	}\
-	void RunBenchmark(DuckDBBenchmarkState *state) override {                                             \
-		std::string basePath = OPLQP_PATH;                                                         \
-		auto query = ReadFile(basePath + QUERY_FILE);\
-        std::cout << query;                                                                                                        \
-		state->conn.Query(query);                                                                                      \
+	void RunBenchmark(DuckDBBenchmarkState *state_p) override {                                                        \
+        auto state = (DuckDBPartitionState *)state_p;                                                                  \
+	    auto query = state->query;                                                                                     \
+	    state->result = state->conn.Query(query);                                                                      \
 	}                                                                                                                  \
 	void Cleanup(DuckDBBenchmarkState *state) override {                                                               \
 	}                                                                                                                  \
 	string VerifyResult(QueryResult *result) override {                                                                \
-		return string();                                                                                               \
-	}                                                                                                                  \
+		if (result->HasError()) {                                                                                      \
+			return result->GetError();                                                                                 \
+		}                                                                                                              \
+		return string();    																						   \
+    }                                                                                                                  \
 	string BenchmarkInfo() override {                                                                                  \
-		return "Benchmark partitioning technique for dataset";											                   \
+		return "Benchmark partitioning technique for dataset";											               \
 	}
 
 

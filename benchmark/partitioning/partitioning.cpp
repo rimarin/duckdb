@@ -7,8 +7,7 @@
 
 using namespace duckdb;
 
-#define OPLQP_PATH "/home/brancaleone/Projects/optimal-physical-layout-query-processing/benchmark/temp/"
-#define QUERY_FILE "query.sql"
+#define QUERY_FILE_PATH "query.sql"
 #define VERIFY_FILE "verify.sql"
 
 //////////////
@@ -17,10 +16,9 @@ using namespace duckdb;
 struct DuckDBPartitionState : public DuckDBBenchmarkState {
 	string query;
 
-	DuckDBPartitionState(string path) : DuckDBBenchmarkState(path) {
-		string basePath = OPLQP_PATH;
-		string queryPath = QUERY_FILE;
-		std::ifstream inputFileStream(basePath + queryPath);                                                                           \
+	DuckDBPartitionState(string path) : DuckDBBenchmarkState(path) {	                                               \
+		string queryPath = QUERY_FILE_PATH;																			   \
+		std::ifstream inputFileStream(queryPath);                                                                      \
 		std::string fileContent;                                                                                       \
 		fileContent.assign ( (std::istreambuf_iterator<char>(inputFileStream) ),                                       \
 		                   (  std::istreambuf_iterator<char>()    ) );                                                 \

@@ -923,7 +923,7 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 		}
 
 		if (!columnSkipped){
-			state.fileToFetchedRowGroups[file_name] += 1;
+			state.fetchedFiles.emplace(file_name);
 		}
 
 		auto &group = GetGroup(state);

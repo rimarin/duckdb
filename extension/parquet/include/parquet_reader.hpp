@@ -63,7 +63,7 @@ struct ParquetReaderScanState {
 
 	bool prefetch_mode = false;
 	bool current_group_prefetched = false;
-	map<string , uint64_t> fileToFetchedRowGroups;
+	set<string> fetchedFiles;
 };
 
 struct ParquetColumnDefinition {

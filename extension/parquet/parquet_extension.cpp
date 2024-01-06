@@ -108,7 +108,7 @@ struct ParquetReadGlobalState : public GlobalTableFunctionState {
 	vector<LogicalType> scanned_types;
 	vector<column_t> column_ids;
 	TableFilterSet *filters;
-	map<string, uint64_t> fileToFetchedRowGroups;
+	set<string> fetchedFiles;
 
 	idx_t MaxThreads() const override {
 		return max_threads;
@@ -614,24 +614,21 @@ public:
 				MultiFileReader::FinalizeChunk(bind_data.reader_bind, data.reader->reader_data, output);
 			}
 
-			auto localFileToFetchedRowGroups = data.scan_state.fileToFetchedRowGroups;
-			for (const auto &fileToNumRowGroups : localFileToFetchedRowGroups){
-				gstate.fileToFetchedRowGroups[fileToNumRowGroups.first] += fileToNumRowGroups.second;
-			}
+			gstate.fetchedFiles.insert(data.scan_state.fetchedFiles.begin(), data.scan_state.fetchedFiles.end());
 
 			bind_data.chunk_count++;
 			if (output.size() > 0) {
-				return;
+				break;
 			}
 			if (!ParquetParallelStateNext(context, bind_data, data, gstate)) {
-				// Log the number of retrieved partitions
-				std::ofstream numPartitionsFile;
-				numPartitionsFile.open("partitions.log", std::fstream::out);
-				numPartitionsFile << gstate.fileToFetchedRowGroups.size() << "\n";
-				numPartitionsFile.close();
-				return;
+				break;
 			}
 		} while (true);
+		// Log the number of retrieved partitions
+		std::ofstream numPartitionsFile;
+		numPartitionsFile.open("partitions.log", std::fstream::out);
+		numPartitionsFile << gstate.fetchedFiles.size() << "\n";
+		numPartitionsFile.close();
 	}
 
 	static unique_ptr<NodeStatistics> ParquetCardinality(ClientContext &context, const FunctionData *bind_data) {

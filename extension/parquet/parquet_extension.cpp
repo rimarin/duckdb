@@ -109,6 +109,7 @@ struct ParquetReadGlobalState : public GlobalTableFunctionState {
 	vector<column_t> column_ids;
 	TableFilterSet *filters;
 	set<string> fetchedFiles;
+	unordered_map<string, set<int64_t>> fetchedRowsGroups;
 
 	idx_t MaxThreads() const override {
 		return max_threads;
@@ -615,6 +616,9 @@ public:
 			}
 
 			gstate.fetchedFiles.insert(data.scan_state.fetchedFiles.begin(), data.scan_state.fetchedFiles.end());
+			for (const auto &fileToRowsGroups : data.scan_state.fetchedRowGroups){
+				gstate.fetchedRowsGroups[fileToRowsGroups.first].insert(fileToRowsGroups.second.begin(), fileToRowsGroups.second.end());
+			}
 
 			bind_data.chunk_count++;
 			if (output.size() > 0) {
@@ -629,6 +633,15 @@ public:
 		numPartitionsFile.open("partitions.log", std::fstream::out);
 		numPartitionsFile << gstate.fetchedFiles.size() << "\n";
 		numPartitionsFile.close();
+		// Log the number of fetched row groups
+		uint64_t totalRowGroups = 0;
+		for (const auto &fileToRowsGroups : gstate.fetchedRowsGroups){
+			totalRowGroups += fileToRowsGroups.second.size();
+		}
+		std::ofstream numRowGroupsFile;
+		numRowGroupsFile.open("row_groups.log", std::fstream::out);
+		numRowGroupsFile << totalRowGroups << "\n";
+		numRowGroupsFile.close();
 	}
 
 	static unique_ptr<NodeStatistics> ParquetCardinality(ClientContext &context, const FunctionData *bind_data) {

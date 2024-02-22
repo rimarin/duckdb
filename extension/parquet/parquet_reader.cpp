@@ -910,11 +910,12 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 		}
 
 		uint64_t to_scan_compressed_bytes = 0;
-		bool columnSkipped = false;
+		bool rowGroupSkipped = false;
 		for (idx_t col_idx = 0; col_idx < reader_data.column_ids.size(); col_idx++) {
-			columnSkipped |= PrepareRowGroupBuffer(state, col_idx);
-			// True: row group is relevant for the query filters
-			// False: row group was pruned thanks to columnar statistics
+			// True: column chunk was pruned thanks to columnar statistics
+			// False: row group is relevant for the query filters
+			bool columnChunkSkipped = PrepareRowGroupBuffer(state, col_idx);
+			rowGroupSkipped |= columnChunkSkipped;
 
 			auto file_col_idx = reader_data.column_ids[col_idx];
 
@@ -922,7 +923,11 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 			to_scan_compressed_bytes += root_reader.GetChildReader(file_col_idx)->TotalCompressedSize();
 		}
 
-		if (!columnSkipped){
+		if (!rowGroupSkipped){
+			// Keep track of the fetched row group
+			auto fetchedRowGroup = state.group_idx_list[state.current_group];
+			state.fetchedRowGroups[file_name].emplace(fetchedRowGroup);
+			// Keep track of the fetched file
 			state.fetchedFiles.emplace(file_name);
 		}
 

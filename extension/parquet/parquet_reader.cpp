@@ -925,7 +925,7 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 
 		if (!rowGroupSkipped){
 			// Keep track of the fetched row group
-			auto fetchedRowGroup = state.group_idx_list[state.current_group];
+			uint64_t fetchedRowGroup = state.group_idx_list[state.current_group];
 			state.fetchedRowGroups[file_name].emplace(fetchedRowGroup);
 			// Keep track of the fetched file
 			state.fetchedFiles.emplace(file_name);

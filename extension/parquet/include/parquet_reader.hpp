@@ -64,7 +64,7 @@ struct ParquetReaderScanState {
 	bool prefetch_mode = false;
 	bool current_group_prefetched = false;
 	set<string> fetchedFiles;
-	unordered_map<string, set<int64_t>> fetchedRowGroups;
+	unordered_map<string, set<uint64_t>> fetchedRowGroups;
 };
 
 struct ParquetColumnDefinition {

@@ -109,7 +109,8 @@ struct ParquetReadGlobalState : public GlobalTableFunctionState {
 	vector<column_t> column_ids;
 	TableFilterSet *filters;
 	set<string> fetchedFiles;
-	unordered_map<string, set<int64_t>> fetchedRowsGroups;
+	unordered_map<string, set<uint64_t>> fetchedRowsGroups;
+	unordered_map<string, uint64_t> fetchedGroupsToRows;
 
 	idx_t MaxThreads() const override {
 		return max_threads;
@@ -618,6 +619,14 @@ public:
 			gstate.fetchedFiles.insert(data.scan_state.fetchedFiles.begin(), data.scan_state.fetchedFiles.end());
 			for (const auto &fileToRowsGroups : data.scan_state.fetchedRowGroups){
 				gstate.fetchedRowsGroups[fileToRowsGroups.first].insert(fileToRowsGroups.second.begin(), fileToRowsGroups.second.end());
+				auto fileRowGroups = gstate.fetchedRowsGroups[data.reader->file_name];
+				for (const auto &rowGroupIdx : fileRowGroups){
+					auto rowGroupsMetadata = data.reader->metadata->metadata->row_groups;
+					if (rowGroupIdx < rowGroupsMetadata.size()){
+						auto rowGroupMetadata = rowGroupsMetadata[rowGroupIdx];
+						gstate.fetchedGroupsToRows[data.reader->file_name + to_string(rowGroupIdx)] = rowGroupMetadata.num_rows;
+					}
+				}
 			}
 
 			bind_data.chunk_count++;
@@ -633,6 +642,15 @@ public:
 		numPartitionsFile.open("partitions.log", std::fstream::out);
 		numPartitionsFile << gstate.fetchedFiles.size() << "\n";
 		numPartitionsFile.close();
+		// Log the number of rows
+		uint64_t totalRows = 0;
+		for (const auto &rowGroupToRows : gstate.fetchedGroupsToRows){
+			totalRows += rowGroupToRows.second;
+		}
+		std::ofstream numRowsFile;
+		numRowsFile.open("rows.log", std::fstream::out);
+		numRowsFile << totalRows << "\n";
+		numRowsFile.close();
 		// Log the number of fetched row groups
 		uint64_t totalRowGroups = 0;
 		for (const auto &fileToRowsGroups : gstate.fetchedRowsGroups){

@@ -33,7 +33,8 @@ struct DuckDBPartitionState : public DuckDBBenchmarkState {
 		auto result = make_uniq<DuckDBPartitionState>(GetDatabasePath());                                              \
 		return std::move(result);                                                                                      \
     }                                                                                                                  \
-	void Load(DuckDBBenchmarkState *state_p) override {                                                                \
+	void Load(DuckDBBenchmarkState *state_p) override {  															   \
+    	state_p->conn.Query("PRAGMA enable_object_cache");                                                             \
 	}                                                                                                                  \
 	void RunBenchmark(DuckDBBenchmarkState *state_p) override {                                                        \
         auto state = (DuckDBPartitionState *)state_p;                                                                  \

@@ -51,6 +51,9 @@ struct DuckDBPartitionState : public DuckDBBenchmarkState {
     }                                                                                                                  \
 	string BenchmarkInfo() override {                                                                                  \
 		return "Benchmark partitioning technique for dataset";											               \
+	}           																									   \
+	size_t Timeout() override {                                                                                        \
+		return 60;                                                                                                     \
 	}
 
 
